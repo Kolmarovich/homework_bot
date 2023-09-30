@@ -1,11 +1,15 @@
 import telegram
-import time
 import requests
-import logging
-import os
-import exceptions
 from dotenv import load_dotenv
+
+import time
+import os
+import logging
+import sys
+
 from http import HTTPStatus
+import exceptions
+
 
 load_dotenv()
 
@@ -34,6 +38,7 @@ def check_tokens():
 def send_message(bot, message):
     """Отправляет сообщение в Telegram чат."""
     try:
+        logging.info('Начало отправки сообщения')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
     except Exception:
         logging.error('Ошибка отправки сообщения в Telegram')
@@ -44,10 +49,14 @@ def send_message(bot, message):
 
 def get_api_answer(timestamp):
     """Ответ API."""
-    payload = {'from_date': timestamp}
     try:
+        logging.info(f'URL={ENDPOINT}, '
+                     f'timestamp={timestamp}, '
+                     f'headers={HEADERS}')
         homework_statuses = requests.get(
-            url=ENDPOINT, headers=HEADERS, params=payload
+            url=ENDPOINT,
+            headers=HEADERS,
+            params={'from_date': timestamp}
         )
         if homework_statuses.status_code != HTTPStatus.OK:
             logging.error('Нет доступа к API')
@@ -95,14 +104,14 @@ def main():
     if not check_tokens():
         logging.critical('Отсутствует необходимое кол-во'
                          ' переменных окружения')
-        exit()
+        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(timestamp)
             homework = check_response(response)
-            if homework:
+            if len(homework) > 0:
                 new_homework = homework[0]
                 status = parse_status(new_homework)
                 send_message(bot, status)
